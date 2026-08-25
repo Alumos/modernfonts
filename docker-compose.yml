@@ -1,0 +1,29 @@
+services:
+  modernfonts:
+    build:
+      context: .
+      args:
+        ALPINE_MIRROR: ${ALPINE_MIRROR:-https://mirrors.cloud.tencent.com/alpine}
+    init: true
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      JWT_SECRET: ${JWT_SECRET:-}
+      LANZOU_WORKERS: ${LANZOU_WORKERS:-8}
+      LANZOU_CACHE_TTL_SECONDS: ${LANZOU_CACHE_TTL_SECONDS:-180}
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "5176:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/system/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 2s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    stop_grace_period: 15s
+    restart: unless-stopped

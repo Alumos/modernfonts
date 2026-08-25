@@ -1,0 +1,23 @@
+services:
+  modernfonts:
+    image: ghcr.io/alumos/modernfonts:latest
+    container_name: modernfonts
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${PORT:-5176}:8080"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      JWT_SECRET: ${JWT_SECRET:-}
+      LANZOU_WORKERS: ${LANZOU_WORKERS:-8}
+      LANZOU_CACHE_TTL_SECONDS: ${LANZOU_CACHE_TTL_SECONDS:-180}
+    volumes:
+      - ${DATA_DIR:-./modernfonts-data}:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/system/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+# 更新镜像：docker compose -f docker-compose.example.yml pull && docker compose -f docker-compose.example.yml up -d
