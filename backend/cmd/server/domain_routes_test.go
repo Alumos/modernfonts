@@ -1,9 +1,97 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
+
+func TestHandleDeleteSourceRemovesOnlyRelatedRecords(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rt, db := newAuthTestRuntime(t)
+	source := DocumentSource{URL: "https://docs.qq.com/doc/delete", Enabled: true, RefreshIntervalMinutes: 60}
+	other := DocumentSource{URL: "https://docs.qq.com/doc/keep", Enabled: true, RefreshIntervalMinutes: 60}
+	if err := db.Create(&source).Error; err != nil {
+		t.Fatalf("create source: %v", err)
+	}
+	if err := db.Create(&other).Error; err != nil {
+		t.Fatalf("create other source: %v", err)
+	}
+	for _, item := range []FontItem{
+		{SourceID: source.ID, FontName: "待删除字体", DownloadURL: "https://example.com/delete", FirstSeenAt: nowForTest(), LastSeenAt: nowForTest()},
+		{SourceID: other.ID, FontName: "保留字体", DownloadURL: "https://example.com/keep", FirstSeenAt: nowForTest(), LastSeenAt: nowForTest()},
+	} {
+		if err := db.Create(&item).Error; err != nil {
+			t.Fatalf("create font: %v", err)
+		}
+	}
+	if err := db.Create(&ParseRun{SourceID: source.ID, Status: "success", StartedAt: nowForTest(), FinishedAt: nowForTest()}).Error; err != nil {
+		t.Fatalf("create parse run: %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.Itoa(int(source.ID))}}
+	ctx.Request = httptest.NewRequest(http.MethodDelete, "/api/admin/sources/"+strconv.Itoa(int(source.ID)), nil)
+	rt.handleDeleteSource(ctx)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("delete status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+
+	for name, model := range map[string]any{
+		"source":    &DocumentSource{},
+		"font":      &FontItem{},
+		"parse run": &ParseRun{},
+	} {
+		var count int64
+		query := db.Model(model)
+		if name != "source" {
+			query = query.Where("source_id = ?", source.ID)
+		} else {
+			query = query.Where("id = ?", source.ID)
+		}
+		if err := query.Count(&count).Error; err != nil {
+			t.Fatalf("count %s: %v", name, err)
+		}
+		if count != 0 {
+			t.Fatalf("%s count = %d, want 0", name, count)
+		}
+	}
+	var keptFonts int64
+	if err := db.Model(&FontItem{}).Where("source_id = ?", other.ID).Count(&keptFonts).Error; err != nil || keptFonts != 1 {
+		t.Fatalf("kept font count = %d, err = %v", keptFonts, err)
+	}
+}
+
+func TestSaveParseResultDoesNotRecreateDeletedSource(t *testing.T) {
+	_, db := newAuthTestRuntime(t)
+	source := DocumentSource{URL: "https://docs.qq.com/doc/deleted-during-parse", Enabled: true, RefreshIntervalMinutes: 60}
+	if err := db.Create(&source).Error; err != nil {
+		t.Fatalf("create source: %v", err)
+	}
+	if err := db.Delete(&source).Error; err != nil {
+		t.Fatalf("delete source: %v", err)
+	}
+	_, err := saveParseResult(db, &source, ParseResult{Items: []ParsedFont{{
+		FontName: "不应写入", DownloadURL: "https://example.com/orphan",
+	}}}, time.Now(), nil)
+	if err == nil {
+		t.Fatal("save result for deleted source succeeded")
+	}
+	for name, model := range map[string]any{"source": &DocumentSource{}, "font": &FontItem{}, "parse run": &ParseRun{}} {
+		var count int64
+		if err := db.Model(model).Count(&count).Error; err != nil {
+			t.Fatalf("count %s: %v", name, err)
+		}
+		if count != 0 {
+			t.Fatalf("%s count = %d, want 0", name, count)
+		}
+	}
+}
 
 func TestSaveParseResultRemovesInvalidTencentFontRows(t *testing.T) {
 	_, db := newAuthTestRuntime(t)

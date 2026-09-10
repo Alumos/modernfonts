@@ -40,7 +40,7 @@ var (
 	callbackWrapRe = regexp.MustCompile(`^[A-Za-z0-9_$.]+\((?s:(.*))\);?$`)
 )
 
-func parseTencentDoc(ctx context.Context, rawURL string) (ParseResult, error) {
+func parsePublicTencentDoc(ctx context.Context, rawURL string) (ParseResult, error) {
 	docID, err := extractDocID(rawURL)
 	if err != nil {
 		return ParseResult{}, err
@@ -78,7 +78,7 @@ func parseTencentDoc(ctx context.Context, rawURL string) (ParseResult, error) {
 func extractDocID(raw string) (string, error) {
 	match := docURLRe.FindStringSubmatch(strings.TrimSpace(raw))
 	if len(match) != 2 {
-		return "", errors.New("请输入公开的腾讯文档链接，例如 https://docs.qq.com/doc/...")
+		return "", errors.New("请输入腾讯文档链接，例如 https://docs.qq.com/doc/...")
 	}
 	return match[1], nil
 }
@@ -268,7 +268,11 @@ func extractFontItems(commands []string) []ParsedFont {
 		}
 		decoded.Write(raw)
 	}
-	lines := regexp.MustCompile(`[\r\n]+`).Split(decoded.String(), -1)
+	return extractFontItemsFromText(decoded.String())
+}
+
+func extractFontItemsFromText(text string) []ParsedFont {
+	lines := regexp.MustCompile(`[\r\n]+`).Split(text, -1)
 	seen := map[string]bool{}
 	var items []ParsedFont
 	lastText := ""

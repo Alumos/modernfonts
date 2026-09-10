@@ -44,6 +44,16 @@ type SiteSetting struct {
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
+type TencentDocsCredential struct {
+	ID                   uint       `json:"id" gorm:"primaryKey"`
+	ClientID             string     `json:"client_id" gorm:"size:128;not null"`
+	AccessTokenEncrypted string     `json:"-" gorm:"type:text;not null"`
+	OpenID               string     `json:"open_id" gorm:"size:128;not null"`
+	AccessTokenExpiresAt *time.Time `json:"access_token_expires_at"`
+	CreatedAt            time.Time  `json:"created_at"`
+	UpdatedAt            time.Time  `json:"updated_at"`
+}
+
 type DocumentSource struct {
 	ID                     uint       `json:"id" gorm:"primaryKey"`
 	URL                    string     `json:"url" gorm:"uniqueIndex;not null"`

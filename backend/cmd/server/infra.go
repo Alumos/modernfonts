@@ -13,6 +13,7 @@ func migrate(db *gorm.DB) error {
 		&DataMigration{},
 		&Admin{},
 		&SiteSetting{},
+		&TencentDocsCredential{},
 		&DocumentSource{},
 		&FontItem{},
 		&ParseRun{},

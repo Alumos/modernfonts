@@ -16,6 +16,7 @@ func (rt *Runtime) registerDomainRoutes(member *gin.RouterGroup, admin *gin.Rout
 	admin.GET("/sources", rt.handleListSources)
 	admin.POST("/sources", rt.handleCreateSource)
 	admin.PATCH("/sources/:id", rt.handleUpdateSource)
+	admin.DELETE("/sources/:id", rt.handleDeleteSource)
 	admin.POST("/sources/:id/parse", rt.handleParseSource)
 	admin.GET("/fonts", rt.handleListFonts)
 	admin.DELETE("/fonts", rt.handleClearFonts)
@@ -92,6 +93,36 @@ func (rt *Runtime) handleUpdateSource(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"source": source})
 }
 
+func (rt *Runtime) handleDeleteSource(c *gin.Context) {
+	_, db, _ := rt.deps()
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid source id"})
+		return
+	}
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		var source DocumentSource
+		if err := tx.First(&source, id).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("source_id = ?", source.ID).Delete(&FontItem{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("source_id = ?", source.ID).Delete(&ParseRun{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&source).Error
+	}); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "source not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 func (rt *Runtime) handleParseSource(c *gin.Context) {
 	_, db, _ := rt.deps()
 	id, _ := strconv.Atoi(c.Param("id"))
@@ -101,7 +132,7 @@ func (rt *Runtime) handleParseSource(c *gin.Context) {
 		return
 	}
 	started := time.Now()
-	result, parseErr := parseTencentDoc(c.Request.Context(), source.URL)
+	result, parseErr := rt.parseTencentDoc(c.Request.Context(), source.URL)
 	saveResult, err := saveParseResult(db, &source, result, started, parseErr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -171,7 +202,9 @@ func saveParseResult(db *gorm.DB, source *DocumentSource, result ParseResult, st
 					return err
 				}
 			}
-			source.Title = result.Title
+			if result.Title != "" {
+				source.Title = result.Title
+			}
 			source.LastError = ""
 			source.LastParsedAt = &now
 		} else {
@@ -179,8 +212,22 @@ func saveParseResult(db *gorm.DB, source *DocumentSource, result ParseResult, st
 		}
 		next := now.Add(time.Duration(source.RefreshIntervalMinutes) * time.Minute)
 		source.NextRunAt = &next
-		if err := tx.Save(source).Error; err != nil {
-			return err
+		updates := map[string]any{
+			"last_error":  source.LastError,
+			"next_run_at": source.NextRunAt,
+		}
+		if parseErr == nil {
+			updates["last_parsed_at"] = source.LastParsedAt
+			if result.Title != "" {
+				updates["title"] = source.Title
+			}
+		}
+		updated := tx.Model(&DocumentSource{}).Where("id = ?", source.ID).Updates(updates)
+		if updated.Error != nil {
+			return updated.Error
+		}
+		if updated.RowsAffected == 0 {
+			return errors.New("document source no longer exists")
 		}
 		return tx.Create(&ParseRun{
 			SourceID:   source.ID,

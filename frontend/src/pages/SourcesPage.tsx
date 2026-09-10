@@ -1,6 +1,6 @@
 import type { FormEvent } from "react"
 import { useEffect, useState } from "react"
-import { Play, RefreshCw } from "lucide-react"
+import { Play, RefreshCw, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { DataTable } from "@/components/common/DataTable"
@@ -9,6 +9,7 @@ import { Panel } from "@/components/common/Panel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { TableCell, TableRow } from "@/components/ui/table"
 import { api, asArray } from "@/lib/api"
@@ -19,6 +20,7 @@ export function SourcesPage() {
   const [sources, setSources] = useState<DocumentSource[]>([])
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<number | null>(null)
+  const [deleteSource, setDeleteSource] = useState<DocumentSource | null>(null)
 
   async function load() {
     setLoading(true)
@@ -90,6 +92,20 @@ export function SourcesPage() {
     }
   }
 
+  async function remove(source: DocumentSource) {
+    setBusyId(source.id)
+    try {
+      await api(`/api/admin/sources/${source.id}`, { method: "DELETE" })
+      toast.success("文档源及其关联记录已删除")
+      setDeleteSource(null)
+      await load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "删除文档源失败")
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   return (
     <div className="grid gap-5">
       <Panel title="添加腾讯文档链接">
@@ -131,10 +147,16 @@ export function SourcesPage() {
               </TableCell>
               <TableCell>{formatDateTime(source.last_parsed_at)}</TableCell>
               <TableCell className="text-right">
-                <Button disabled={busyId === source.id} size="sm" variant="outline" onClick={() => parse(source)}>
-                  {busyId === source.id ? <RefreshCw className="size-4 animate-spin" /> : null}
-                  立即解析
-                </Button>
+                <div className="flex justify-end gap-2">
+                  <Button disabled={busyId === source.id} size="sm" variant="outline" onClick={() => parse(source)}>
+                    {busyId === source.id ? <RefreshCw className="size-4 animate-spin" /> : null}
+                    立即解析
+                  </Button>
+                  <Button aria-label={`删除文档源 ${source.title || source.url}`} disabled={busyId === source.id} size="sm" variant="destructive" onClick={() => setDeleteSource(source)}>
+                    <Trash2 className="size-4" />
+                    删除
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           ))}
@@ -145,6 +167,24 @@ export function SourcesPage() {
           ) : null}
         </DataTable>
       </Panel>
+
+      <Dialog open={Boolean(deleteSource)} onOpenChange={(open) => { if (!open && busyId !== deleteSource?.id) setDeleteSource(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>删除文档源</DialogTitle>
+            <DialogDescription>
+              将删除“{deleteSource?.title || "未解析标题"}”以及由它解析出的全部字体记录和解析日志。此操作无法撤销。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild><Button disabled={busyId === deleteSource?.id} variant="outline">取消</Button></DialogClose>
+            <Button disabled={!deleteSource || busyId === deleteSource.id} variant="destructive" onClick={() => { if (deleteSource) void remove(deleteSource) }}>
+              {busyId === deleteSource?.id ? <RefreshCw className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+              确认删除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -1,5 +1,12 @@
 export type Site = { id?: number; name: string; subtitle?: string; logo_path?: string; lanzou_password?: string }
 
+export type TencentDocsSettings = {
+  configured: boolean
+  client_id?: string
+  open_id?: string
+  access_token_expires_at?: string | null
+}
+
 export type Status = { installed: boolean; site?: Site }
 
 export type AccountRole = "admin" | "user"

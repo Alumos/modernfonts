@@ -38,7 +38,7 @@ func (rt *Runtime) runDueParses(ctx context.Context) {
 		}
 		source := sources[i]
 		started := time.Now()
-		result, parseErr := parseTencentDoc(ctx, source.URL)
+		result, parseErr := rt.parseTencentDoc(ctx, source.URL)
 		if _, err := saveParseResult(db, &source, result, started, parseErr); err != nil {
 			log.Printf("scheduler save source %d: %v", source.ID, err)
 		}

@@ -27,6 +27,8 @@ func (rt *Runtime) registerAPI(api *gin.RouterGroup) {
 	admin := api.Group("/admin", rt.sessionRequired(), rt.adminRequired(), rt.credentialsReady())
 	admin.GET("/settings/site", rt.handleGetSite)
 	admin.PUT("/settings/site", rt.handleUpdateSite)
+	admin.GET("/settings/tencent-docs", rt.handleGetTencentDocs)
+	admin.PUT("/settings/tencent-docs", rt.handleUpdateTencentDocs)
 	admin.GET("/users", rt.handleListUsers)
 	admin.POST("/users", rt.handleCreateUser)
 	admin.PATCH("/users/:id/status", rt.handleUpdateUserStatus)
