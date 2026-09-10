@@ -151,6 +151,11 @@ func appendTencentDocsNodeText(output *strings.Builder, node tencentDocsNode) {
 	for _, child := range node.Children {
 		appendTencentDocsNodeText(output, child)
 	}
+	// Tencent Docs represents line breaks structurally. Paragraph text nodes do
+	// not include a trailing newline, so preserve that boundary for the parser.
+	if node.Type == "Paragraph" {
+		output.WriteByte('\n')
+	}
 }
 
 func escapeTencentDocsFileID(fileID string) string {

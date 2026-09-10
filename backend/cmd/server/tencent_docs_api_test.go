@@ -28,8 +28,8 @@ func TestParseTencentDocOpenAPI(t *testing.T) {
 			response := tencentDocsDocumentResponse{Document: &tencentDocsNode{
 				Type: "Document",
 				Children: []tencentDocsNode{
-					{Type: "Text", Text: "测试字体 六字重\n"},
-					{Type: "begin", Text: "HYPERLINK https://example.lanzou.com/font dkey code123\n"},
+					{Type: "Paragraph", Children: []tencentDocsNode{{Type: "Text", Text: "测试字体 六字重"}}},
+					{Type: "Paragraph", Children: []tencentDocsNode{{Type: "begin", Text: "HYPERLINK https://example.lanzou.com/font dkey code123"}}},
 				},
 			}, Version: 1}
 			_ = json.NewEncoder(w).Encode(response)

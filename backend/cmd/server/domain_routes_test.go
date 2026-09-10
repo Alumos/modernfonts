@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -90,6 +91,43 @@ func TestSaveParseResultDoesNotRecreateDeletedSource(t *testing.T) {
 		if count != 0 {
 			t.Fatalf("%s count = %d, want 0", name, count)
 		}
+	}
+}
+
+func TestHandleClearParseRunsSupportsCurrentSourceAndAll(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rt, db := newAuthTestRuntime(t)
+	for _, run := range []ParseRun{
+		{SourceID: 1, Status: "success", StartedAt: nowForTest(), FinishedAt: nowForTest()},
+		{SourceID: 1, Status: "failed", StartedAt: nowForTest(), FinishedAt: nowForTest()},
+		{SourceID: 2, Status: "success", StartedAt: nowForTest(), FinishedAt: nowForTest()},
+	} {
+		if err := db.Create(&run).Error; err != nil {
+			t.Fatalf("create parse run: %v", err)
+		}
+	}
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodDelete, "/api/admin/parse-runs?source_id=1", nil)
+	rt.handleClearParseRuns(ctx)
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"deleted":2`) {
+		t.Fatalf("clear source status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+	var remaining int64
+	if err := db.Model(&ParseRun{}).Count(&remaining).Error; err != nil || remaining != 1 {
+		t.Fatalf("remaining runs = %d, err = %v", remaining, err)
+	}
+
+	recorder = httptest.NewRecorder()
+	ctx, _ = gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodDelete, "/api/admin/parse-runs", nil)
+	rt.handleClearParseRuns(ctx)
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"deleted":1`) {
+		t.Fatalf("clear all status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+	if err := db.Model(&ParseRun{}).Count(&remaining).Error; err != nil || remaining != 0 {
+		t.Fatalf("remaining runs after clear all = %d, err = %v", remaining, err)
 	}
 }
 

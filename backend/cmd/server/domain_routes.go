@@ -21,6 +21,7 @@ func (rt *Runtime) registerDomainRoutes(member *gin.RouterGroup, admin *gin.Rout
 	admin.GET("/fonts", rt.handleListFonts)
 	admin.DELETE("/fonts", rt.handleClearFonts)
 	admin.GET("/parse-runs", rt.handleListParseRuns)
+	admin.DELETE("/parse-runs", rt.handleClearParseRuns)
 	member.POST("/fonts/:id/downloads", rt.handleResolveFontDownloads)
 }
 
@@ -325,6 +326,27 @@ func (rt *Runtime) handleListParseRuns(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"runs": runs})
+}
+
+func (rt *Runtime) handleClearParseRuns(c *gin.Context) {
+	_, db, _ := rt.deps()
+	stmt := db.Model(&ParseRun{})
+	if rawSourceID := strings.TrimSpace(c.Query("source_id")); rawSourceID != "" {
+		sourceID, err := strconv.Atoi(rawSourceID)
+		if err != nil || sourceID < 1 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid source id"})
+			return
+		}
+		stmt = stmt.Where("source_id = ?", sourceID)
+	} else {
+		stmt = stmt.Session(&gorm.Session{AllowGlobalUpdate: true})
+	}
+	result := stmt.Delete(&ParseRun{})
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true, "deleted": result.RowsAffected})
 }
 
 func queryLimit(raw string, fallback, maximum int) int {
