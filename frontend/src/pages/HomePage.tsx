@@ -32,6 +32,7 @@ export function HomePage({ site, account, refresh }: { site?: Site; account?: Ac
   const [archiveLoading, setArchiveLoading] = useState(false)
   const [previewPath, setPreviewPath] = useState("")
   const [previewText, setPreviewText] = useState("字体预览 AaBbCc 现代字体")
+  const [previewReady, setPreviewReady] = useState(false)
   const [logoutPending, setLogoutPending] = useState(false)
   const [filters, setFilters] = useState<FontFilters>({ style: "all", series: "all", weight: "all" })
 
@@ -57,6 +58,12 @@ export function HomePage({ site, account, refresh }: { site?: Site; account?: Ac
     const timer = window.setTimeout(() => { void load(query) }, 250)
     return () => window.clearTimeout(timer)
   }, [load, query])
+
+  useEffect(() => {
+    if (!previewPath) return
+    setPreviewReady(false)
+    void document.fonts.load(`32px ArchivePreview`).then(() => setPreviewReady(true)).catch(() => setPreviewReady(true))
+  }, [previewPath, archiveId])
 
   async function refreshFonts() {
     const refreshedTotal = await load(query)
@@ -229,7 +236,7 @@ export function HomePage({ site, account, refresh }: { site?: Site; account?: Ac
           {archiveLoading ? <div className="flex h-40 flex-col items-center justify-center gap-3 text-sm text-muted-foreground"><Loader2 className="size-8 animate-spin text-primary" /><span>正在准备预览目录</span></div> : <div className="max-h-[55vh] overflow-y-auto pr-1">{archiveFiles.map((entry) => { const font = /\.(ttf|otf|woff2?)$/i.test(entry.name); return <div className="flex items-center justify-between gap-3 border-b py-2 text-sm last:border-0" key={entry.path}><span className="min-w-0 truncate">{entry.path}</span><div className="flex gap-2">{font ? <Button size="sm" variant="outline" onClick={() => setPreviewPath(entry.path)}>预览</Button> : null}<Button asChild size="sm" variant="outline"><a download href={`/api/archives/${archiveId}/file?path=${encodeURIComponent(entry.path)}`}>下载</a></Button></div></div> })}</div>}
         </DialogContent>
       </Dialog>
-      <Dialog open={Boolean(previewPath)} onOpenChange={(open) => { if (!open) setPreviewPath("") }}><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>字体预览</DialogTitle><DialogDescription>{previewPath}</DialogDescription></DialogHeader><Input value={previewText} onChange={(event) => setPreviewText(event.target.value)} /><div className="rounded-lg border bg-muted/20 p-6 text-4xl leading-relaxed" style={{ fontFamily: "ArchivePreview" }}>{previewText}</div><style>{`@font-face{font-family:ArchivePreview;src:url("/api/archives/${archiveId}/font?path=${encodeURIComponent(previewPath)}") format("truetype");}`}</style></DialogContent></Dialog>
+      <Dialog open={Boolean(previewPath)} onOpenChange={(open) => { if (!open) { setPreviewPath(""); setPreviewReady(false) } }}><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>字体预览</DialogTitle><DialogDescription>{previewPath}</DialogDescription></DialogHeader><Input value={previewText} onChange={(event) => setPreviewText(event.target.value)} /><style>{`@font-face{font-family:ArchivePreview;src:url("/api/archives/${archiveId}/font?path=${encodeURIComponent(previewPath)}") format("${/\.woff2$/i.test(previewPath) ? "woff2" : /\.woff$/i.test(previewPath) ? "woff" : /\.otf$/i.test(previewPath) ? "opentype" : "truetype"}");font-display:block;}`}</style>{previewReady ? <div className="rounded-lg border bg-muted/20 p-6 text-4xl leading-relaxed" style={{ fontFamily: "ArchivePreview" }}>{previewText}</div> : <div className="flex h-32 items-center justify-center gap-3 text-sm text-muted-foreground"><Loader2 className="size-6 animate-spin text-primary" />正在加载字体…</div>}</DialogContent></Dialog>
     </div>
   )
 }
