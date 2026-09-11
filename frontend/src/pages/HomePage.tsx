@@ -218,9 +218,13 @@ export function HomePage({ site, account, refresh }: { site?: Site; account?: Ac
                 {file.url ? <div className="flex w-full gap-2 sm:w-auto"><Button asChild size="sm"><a href={file.url} rel="noreferrer" target="_blank"><Download className="size-4" />压缩包</a></Button>{/\.zip$/i.test(file.name) ? <Button size="sm" variant="outline" onClick={() => void previewArchive(file)}>浏览</Button> : null}</div> : <Button className="w-full sm:w-auto" disabled size="sm"><Download className="size-4" />不可下载</Button>}
               </div>)}
             </div>
-            {archiveLoading ? <div className="mt-4 text-sm text-muted-foreground">正在读取压缩包目录…</div> : null}
-            {archiveFiles.length > 0 ? <div className="mt-4 grid gap-2 rounded-md border bg-background p-3"><div className="text-sm font-medium">压缩包内容</div>{archiveFiles.map((entry) => <div className="flex items-center justify-between gap-3 text-sm" key={entry.path}><span className="min-w-0 truncate">{entry.path}</span><Button asChild size="sm" variant="outline"><a href={`/api/archives/${archiveId}/file?path=${encodeURIComponent(entry.path)}`}>下载</a></Button></div>)}</div> : null}
           </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={archiveLoading || archiveFiles.length > 0} onOpenChange={(open) => { if (!open && !archiveLoading) { setArchiveFiles([]); setArchiveId("") } }}>
+        <DialogContent className="max-h-[80vh] max-w-xl">
+          <DialogHeader><DialogTitle>压缩包内容</DialogTitle><DialogDescription>{archiveLoading ? "正在下载并读取压缩包，请稍候…" : `共 ${archiveFiles.length} 个文件，临时文件将在 30 分钟后自动清理`}</DialogDescription></DialogHeader>
+          {archiveLoading ? <div className="flex h-40 flex-col items-center justify-center gap-3 text-sm text-muted-foreground"><Loader2 className="size-8 animate-spin text-primary" /><span>正在准备预览目录</span></div> : <div className="max-h-[55vh] overflow-y-auto pr-1">{archiveFiles.map((entry) => <div className="flex items-center justify-between gap-3 border-b py-2 text-sm last:border-0" key={entry.path}><span className="min-w-0 truncate">{entry.path}</span><Button asChild size="sm" variant="outline"><a download href={`/api/archives/${archiveId}/file?path=${encodeURIComponent(entry.path)}`}>下载</a></Button></div>)}</div>}
         </DialogContent>
       </Dialog>
     </div>

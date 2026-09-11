@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -152,11 +153,11 @@ func (rt *Runtime) handleArchiveFile(c *gin.Context) {
 			break
 		}
 		defer rc.Close()
-		c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename*=UTF-8''%s`, urlEncode(filepath.Base(zf.Name))))
+		name := filepath.Base(zf.Name)
+		c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="download"; filename*=UTF-8''%s`, url.QueryEscape(name)))
 		c.Header("Content-Type", "application/octet-stream")
 		_, _ = io.Copy(c.Writer, rc)
 		return
 	}
 	c.JSON(404, gin.H{"error": "文件不存在"})
 }
-func urlEncode(s string) string { return strings.ReplaceAll(s, " ", "%20") }
