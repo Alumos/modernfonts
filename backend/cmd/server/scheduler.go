@@ -14,6 +14,9 @@ func (rt *Runtime) startScheduler(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			if rt.archiveStore != nil {
+				_ = rt.archiveStore.cleanup()
+			}
 			rt.runDueParses(ctx)
 		}
 	}

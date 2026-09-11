@@ -52,6 +52,7 @@ export type LanzouDownloadFile = {
   url?: string
   error?: string
 }
+export type ArchiveFile = { name: string; path: string; size: number }
 
 export type ParseRun = {
   id: number

@@ -24,6 +24,8 @@ func (rt *Runtime) registerAPI(api *gin.RouterGroup) {
 	adminSession.POST("/auth/change-credentials", rt.handleChangeCredentials)
 
 	member := api.Group("", rt.sessionRequired(), rt.credentialsReady())
+	member.POST("/archives", rt.handleCreateArchive)
+	member.GET("/archives/:id/file", rt.handleArchiveFile)
 	admin := api.Group("/admin", rt.sessionRequired(), rt.adminRequired(), rt.credentialsReady())
 	admin.GET("/settings/site", rt.handleGetSite)
 	admin.PUT("/settings/site", rt.handleUpdateSite)

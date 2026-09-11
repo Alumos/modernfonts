@@ -16,6 +16,7 @@ type Runtime struct {
 	cfg            *Config
 	db             *gorm.DB
 	lanzouResolver *nativeLanzouResolver
+	archiveStore   *archiveStore
 }
 
 func (rt *Runtime) loadInstalled() error {
@@ -55,7 +56,11 @@ func (rt *Runtime) loadInstalled() error {
 	}
 	rt.mu.Lock()
 	rt.cfg, rt.db = cfg, db
+	rt.archiveStore = newArchiveStore(filepath.Join(rt.dataDir, "temp-downloads"))
 	rt.mu.Unlock()
+	if err := rt.archiveStore.cleanup(); err != nil {
+		return err
+	}
 	return nil
 }
 

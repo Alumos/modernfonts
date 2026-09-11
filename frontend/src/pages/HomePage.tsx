@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { fontSeriesOptions, fontStyleOptions, fontWeightOptions, getFontProfile, matchesFontProfile, type FontFilters } from "@/lib/font-tags"
 import { api, asArray } from "@/lib/api"
 import { formatDateTime } from "@/lib/format"
-import type { Account, LanzouDownloadFile, PublicFont, Site } from "@/types"
+import type { Account, ArchiveFile, LanzouDownloadFile, PublicFont, Site } from "@/types"
 
 const pageSize = 36
 const catalogLimit = 1000
@@ -27,6 +27,9 @@ export function HomePage({ site, account, refresh }: { site?: Site; account?: Ac
   const [downloadFiles, setDownloadFiles] = useState<LanzouDownloadFile[]>([])
   const [downloadLoading, setDownloadLoading] = useState(false)
   const [downloadError, setDownloadError] = useState("")
+  const [archiveFiles, setArchiveFiles] = useState<ArchiveFile[]>([])
+  const [archiveId, setArchiveId] = useState("")
+  const [archiveLoading, setArchiveLoading] = useState(false)
   const [logoutPending, setLogoutPending] = useState(false)
   const [filters, setFilters] = useState<FontFilters>({ style: "all", series: "all", weight: "all" })
 
@@ -75,6 +78,7 @@ export function HomePage({ site, account, refresh }: { site?: Site; account?: Ac
     }
     setDownloadFont(font)
     setDownloadFiles([])
+    setArchiveFiles([]); setArchiveId("")
     setDownloadError("")
     setDownloadLoading(true)
     try {
@@ -85,6 +89,13 @@ export function HomePage({ site, account, refresh }: { site?: Site; account?: Ac
     } finally {
       setDownloadLoading(false)
     }
+  }
+
+  async function previewArchive(file: LanzouDownloadFile) {
+    if (!file.url) return
+    setArchiveLoading(true); setDownloadError("")
+    try { const result = await api<{session_id:string; files:ArchiveFile[]}>("/api/archives", { method:"POST", body: JSON.stringify({url:file.url, name:file.name}) }); setArchiveId(result.session_id); setArchiveFiles(result.files) }
+    catch (err) { setDownloadError(err instanceof Error ? err.message : "读取压缩包失败") } finally { setArchiveLoading(false) }
   }
 
   async function logout() {
@@ -204,9 +215,11 @@ export function HomePage({ site, account, refresh }: { site?: Site; account?: Ac
             <div className="grid gap-2" data-testid="download-file-list">
               {downloadFiles.map((file, index) => <div className="grid min-w-0 gap-3 rounded-md border bg-background p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" key={`${file.url || file.name}-${index}`}>
                 <div className="flex min-w-0 items-start gap-3"><div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"><FileArchive className="size-4" /></div><div className="min-w-0 flex-1"><div className="flex min-w-0 flex-wrap items-center gap-2"><div className="min-w-0 break-all text-sm font-medium">{file.name || `文件 ${index + 1}`}</div>{file.size ? <Badge className="shrink-0 font-normal" variant="secondary">{file.size}</Badge> : null}</div>{file.path ? <div className="mt-1 truncate text-xs text-muted-foreground">{file.path}</div> : null}{file.url ? <a className="mt-1 flex min-w-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground" href={file.url} rel="noreferrer" target="_blank" title={file.url}><span className="truncate">{file.url}</span><ExternalLink className="size-3 shrink-0" /></a> : null}{file.error ? <div className="mt-1 text-xs text-destructive">{file.error}</div> : null}</div></div>
-                {file.url ? <Button asChild className="w-full sm:w-auto" size="sm"><a href={file.url} rel="noreferrer" target="_blank"><Download className="size-4" />下载</a></Button> : <Button className="w-full sm:w-auto" disabled size="sm"><Download className="size-4" />不可下载</Button>}
+                {file.url ? <div className="flex w-full gap-2 sm:w-auto"><Button asChild size="sm"><a href={file.url} rel="noreferrer" target="_blank"><Download className="size-4" />压缩包</a></Button>{/\.zip$/i.test(file.name) ? <Button size="sm" variant="outline" onClick={() => void previewArchive(file)}>浏览</Button> : null}</div> : <Button className="w-full sm:w-auto" disabled size="sm"><Download className="size-4" />不可下载</Button>}
               </div>)}
             </div>
+            {archiveLoading ? <div className="mt-4 text-sm text-muted-foreground">正在读取压缩包目录…</div> : null}
+            {archiveFiles.length > 0 ? <div className="mt-4 grid gap-2 rounded-md border bg-background p-3"><div className="text-sm font-medium">压缩包内容</div>{archiveFiles.map((entry) => <div className="flex items-center justify-between gap-3 text-sm" key={entry.path}><span className="min-w-0 truncate">{entry.path}</span><Button asChild size="sm" variant="outline"><a href={`/api/archives/${archiveId}/file?path=${encodeURIComponent(entry.path)}`}>下载</a></Button></div>)}</div> : null}
           </div>
         </DialogContent>
       </Dialog>
