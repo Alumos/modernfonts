@@ -161,3 +161,44 @@ func (rt *Runtime) handleArchiveFile(c *gin.Context) {
 	}
 	c.JSON(404, gin.H{"error": "文件不存在"})
 }
+
+func (rt *Runtime) handleArchiveFont(c *gin.Context) {
+	id, path := c.Param("id"), c.Query("path")
+	if len(id) != 32 || !validArchivePath(path) || !strings.HasSuffix(strings.ToLower(path), ".ttf") && !strings.HasSuffix(strings.ToLower(path), ".otf") && !strings.HasSuffix(strings.ToLower(path), ".woff") && !strings.HasSuffix(strings.ToLower(path), ".woff2") {
+		c.JSON(400, gin.H{"error": "不是可预览的字体文件"})
+		return
+	}
+	zr, err := zip.OpenReader(filepath.Join(rt.archiveStore.root, id, "archive.zip"))
+	if err != nil {
+		c.JSON(404, gin.H{"error": "临时文件已过期"})
+		return
+	}
+	defer zr.Close()
+	for _, zf := range zr.File {
+		if filepath.ToSlash(zf.Name) != filepath.ToSlash(path) {
+			continue
+		}
+		rc, err := zf.Open()
+		if err != nil {
+			break
+		}
+		defer rc.Close()
+		c.Header("Content-Type", fontContentType(path))
+		c.Header("Cache-Control", "private, max-age=1800")
+		_, _ = io.Copy(c.Writer, rc)
+		return
+	}
+	c.JSON(404, gin.H{"error": "文件不存在"})
+}
+func fontContentType(path string) string {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".ttf":
+		return "font/ttf"
+	case ".otf":
+		return "font/otf"
+	case ".woff":
+		return "font/woff"
+	default:
+		return "font/woff2"
+	}
+}

@@ -30,6 +30,8 @@ export function HomePage({ site, account, refresh }: { site?: Site; account?: Ac
   const [archiveFiles, setArchiveFiles] = useState<ArchiveFile[]>([])
   const [archiveId, setArchiveId] = useState("")
   const [archiveLoading, setArchiveLoading] = useState(false)
+  const [previewPath, setPreviewPath] = useState("")
+  const [previewText, setPreviewText] = useState("字体预览 AaBbCc 现代字体")
   const [logoutPending, setLogoutPending] = useState(false)
   const [filters, setFilters] = useState<FontFilters>({ style: "all", series: "all", weight: "all" })
 
@@ -224,9 +226,10 @@ export function HomePage({ site, account, refresh }: { site?: Site; account?: Ac
       <Dialog open={archiveLoading || archiveFiles.length > 0} onOpenChange={(open) => { if (!open && !archiveLoading) { setArchiveFiles([]); setArchiveId("") } }}>
         <DialogContent className="max-h-[80vh] max-w-xl">
           <DialogHeader><DialogTitle>压缩包内容</DialogTitle><DialogDescription>{archiveLoading ? "正在下载并读取压缩包，请稍候…" : `共 ${archiveFiles.length} 个文件，临时文件将在 30 分钟后自动清理`}</DialogDescription></DialogHeader>
-          {archiveLoading ? <div className="flex h-40 flex-col items-center justify-center gap-3 text-sm text-muted-foreground"><Loader2 className="size-8 animate-spin text-primary" /><span>正在准备预览目录</span></div> : <div className="max-h-[55vh] overflow-y-auto pr-1">{archiveFiles.map((entry) => <div className="flex items-center justify-between gap-3 border-b py-2 text-sm last:border-0" key={entry.path}><span className="min-w-0 truncate">{entry.path}</span><Button asChild size="sm" variant="outline"><a download href={`/api/archives/${archiveId}/file?path=${encodeURIComponent(entry.path)}`}>下载</a></Button></div>)}</div>}
+          {archiveLoading ? <div className="flex h-40 flex-col items-center justify-center gap-3 text-sm text-muted-foreground"><Loader2 className="size-8 animate-spin text-primary" /><span>正在准备预览目录</span></div> : <div className="max-h-[55vh] overflow-y-auto pr-1">{archiveFiles.map((entry) => { const font = /\.(ttf|otf|woff2?)$/i.test(entry.name); return <div className="flex items-center justify-between gap-3 border-b py-2 text-sm last:border-0" key={entry.path}><span className="min-w-0 truncate">{entry.path}</span><div className="flex gap-2">{font ? <Button size="sm" variant="outline" onClick={() => setPreviewPath(entry.path)}>预览</Button> : null}<Button asChild size="sm" variant="outline"><a download href={`/api/archives/${archiveId}/file?path=${encodeURIComponent(entry.path)}`}>下载</a></Button></div></div> })}</div>}
         </DialogContent>
       </Dialog>
+      <Dialog open={Boolean(previewPath)} onOpenChange={(open) => { if (!open) setPreviewPath("") }}><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>字体预览</DialogTitle><DialogDescription>{previewPath}</DialogDescription></DialogHeader><Input value={previewText} onChange={(event) => setPreviewText(event.target.value)} /><div className="rounded-lg border bg-muted/20 p-6 text-4xl leading-relaxed" style={{ fontFamily: "ArchivePreview" }}>{previewText}</div><style>{`@font-face{font-family:ArchivePreview;src:url("/api/archives/${archiveId}/font?path=${encodeURIComponent(previewPath)}") format("truetype");}`}</style></DialogContent></Dialog>
     </div>
   )
 }

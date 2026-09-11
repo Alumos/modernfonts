@@ -26,6 +26,7 @@ func (rt *Runtime) registerAPI(api *gin.RouterGroup) {
 	member := api.Group("", rt.sessionRequired(), rt.credentialsReady())
 	member.POST("/archives", rt.handleCreateArchive)
 	member.GET("/archives/:id/file", rt.handleArchiveFile)
+	member.GET("/archives/:id/font", rt.handleArchiveFont)
 	admin := api.Group("/admin", rt.sessionRequired(), rt.adminRequired(), rt.credentialsReady())
 	admin.GET("/settings/site", rt.handleGetSite)
 	admin.PUT("/settings/site", rt.handleUpdateSite)
